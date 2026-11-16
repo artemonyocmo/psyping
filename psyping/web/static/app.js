@@ -91,6 +91,17 @@ function showBrowserNotification(title, text, logId) {
   }
 }
 
+function copyShareLink() {
+  const url = window.location.origin + '/?u=' + (state.userId || 'default');
+  navigator.clipboard.writeText(url).then(() => {
+    const label = document.getElementById('share-label');
+    if (label) {
+      label.innerText = 'Скопировано! ✓';
+      setTimeout(() => label.innerText = 'Мой линк', 2000);
+    }
+  });
+}
+
 // Navigation Tabs
 function switchTab(tabId) {
   state.activeTab = tabId;
@@ -120,6 +131,7 @@ async function loadStatus() {
     const res = await fetch('/api/status');
     const data = await res.json();
     state.settings = data.settings || {};
+    state.userId = data.user_id || 'default';
     state.logs = data.recent_logs || [];
     
     // Status badge

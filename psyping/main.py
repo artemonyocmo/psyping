@@ -4,34 +4,35 @@ import sys
 from datetime import datetime, timezone
 import uvicorn
 from .web.app import app
-from .database import init_db, get_settings, update_settings
+from .database import init_db, get_all_active_users, update_user
 from .seed_data import seed_prompts_if_empty
 from .engine.dispatcher import dispatch_reminder
 from .engine.scheduler import schedule_next_ping
 
 async def background_scheduler_loop():
-    print("[PsyPing Scheduler] Background loop started...")
+    print("[PsyPing Multi-Tenant Scheduler] Background worker loop started...")
     while True:
         try:
             await asyncio.sleep(15) # Check every 15 seconds
-            settings = get_settings()
+            users = get_all_active_users()
+            now_dt = datetime.now(timezone.utc)
             
-            if settings.get("is_paused"):
-                continue
-                
-            next_run_iso = settings.get("next_run_at")
-            if not next_run_iso:
-                schedule_next_ping()
-                continue
-                
-            next_run_dt = datetime.fromisoformat(next_run_iso)
-            now_dt = datetime.now() if next_run_dt.tzinfo is None else datetime.now(timezone.utc)
-            
-            if now_dt >= next_run_dt:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] Triggering scheduled random psychological ping...")
-                res = await dispatch_reminder()
-                print(f"[PsyPing Scheduler] Dispatched: channel={res.get('channel_id')}, success={res.get('success')}, next={res.get('next_run_at')}")
-                
+            for u in users:
+                user_id = u["id"]
+                next_run_iso = u.get("next_run_at")
+                if not next_run_iso:
+                    schedule_next_ping(user_id)
+                    continue
+                    
+                next_run_dt = datetime.fromisoformat(next_run_iso)
+                if next_run_dt.tzinfo is None:
+                    next_run_dt = next_run_dt.replace(tzinfo=timezone.utc)
+                    
+                if now_dt >= next_run_dt:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] Pinging user '{user_id}'...")
+                    res = await dispatch_reminder(user_id=user_id)
+                    print(f"[PsyPing Scheduler] Result for {user_id}: channel={res.get('channel_id')}, success={res.get('success')}")
+                    
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -41,19 +42,15 @@ async def background_scheduler_loop():
 async def start_background_tasks():
     init_db()
     seed_prompts_if_empty()
-    # Schedule initial ping if not scheduled
-    settings = get_settings()
-    if not settings.get("next_run_at"):
-        schedule_next_ping()
-    # Spawn background scheduler worker
+    schedule_next_ping("default")
     asyncio.create_task(background_scheduler_loop())
 
 def main():
-    host = os.getenv("HOST", "127.0.0.1")
+    host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
     print("=" * 60)
-    print("  Ψ PsyPing — Omnichannel Random Reminder Service")
-    print(f"  Dashboard available at: http://localhost:{port}")
+    print("  Ψ PsyPing — Omnichannel Psychological Reminder Service")
+    print(f"  Multi-user service running on: http://{host}:{port}")
     print("=" * 60)
     uvicorn.run(app, host=host, port=port)
 
