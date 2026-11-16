@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PsyPing — Омниканальные случайные напоминания</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .animate-subtle { animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+          Ψ
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight">PsyPing</h1>
+            <span id="status-badge" class="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              Активен
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Анти-баннерная осознанность и случайные триггеры</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="btn-browser-notif" onclick="enableBrowserNotifications()" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+          <span id="notif-icon">🔔</span> <span id="notif-label">Включить пуши браузера</span>
+        </button>
+
+        <div class="relative inline-block text-left">
+          <button onclick="triggerQuickPing()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 transition active:scale-95">
+            <span>⚡ Пинг сейчас</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="border-b border-slate-800 bg-slate-900/40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-8">
+      <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn py-3 border-b-2 border-emerald-500 text-emerald-400 text-sm font-medium">Обзор и Пульс</button>
+      <button onclick="switchTab('channels')" id="tab-btn-channels" class="tab-btn py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 text-sm font-medium">Каналы атаки</button>
+      <button onclick="switchTab('prompts')" id="tab-btn-prompts" class="tab-btn py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 text-sm font-medium">Библиотека тем</button>
+      <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 text-sm font-medium">Настройки & AI</button>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- 1. OVERVIEW TAB -->
+    <section id="tab-overview" class="tab-content space-y-8">
+      <!-- Top Metric Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Next Ping Card -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none"></div>
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Следующий случайный импульс</div>
+          <div id="stat-next-ping" class="text-2xl font-bold text-white tracking-tight">--:--</div>
+          <div id="stat-next-countdown" class="text-xs text-emerald-400 font-medium mt-1">Ожидание планировщика...</div>
+        </div>
+
+        <!-- Resistance / Ack Rate -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Отклик (Анти-замыливание)</div>
+          <div id="stat-ack-rate" class="text-2xl font-bold text-white tracking-tight">0%</div>
+          <div id="stat-ack-counts" class="text-xs text-slate-400 mt-1">0 подтверждено из 0</div>
+        </div>
+
+        <!-- Active Channels -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Каналы доставки</div>
+          <div id="stat-active-channels" class="text-2xl font-bold text-white tracking-tight">0 / 0</div>
+          <div class="text-xs text-slate-400 mt-1">Взвешенная рулетка</div>
+        </div>
+
+        <!-- Prompts Pool -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Пул триггеров</div>
+          <div id="stat-prompts-count" class="text-2xl font-bold text-white tracking-tight">0 тем</div>
+          <div class="text-xs text-slate-400 mt-1">6 категорий саморефлексии</div>
+        </div>
+      </div>
+
+      <!-- Live Notification Banner (Web Push simulator) -->
+      <div id="live-notification" class="hidden bg-gradient-to-r from-emerald-950/80 to-slate-900 border border-emerald-500/40 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+        <div class="flex items-start justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span id="live-category" class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Психологический импульс</span>
+            </div>
+            <div id="live-text" class="text-lg font-medium text-slate-100 pt-1">
+              Текст напоминания...
+            </div>
+          </div>
+          <button id="live-ack-btn" onclick="acknowledgeLive()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition shrink-0 shadow-lg shadow-emerald-500/20">
+            Сделал ✓
+          </button>
+        </div>
+      </div>
+
+      <!-- Channel Weights Distribution & Anti-Fatigue Visualizer -->
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">Текущее распределение вероятностей каналов (Anti-Fatigue Roulette)</h2>
+        <div id="roulette-bars" class="space-y-3">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Recent Pings Timeline -->
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Журнал недавних импульсов</h2>
+          <button onclick="loadStatus()" class="text-xs text-emerald-400 hover:text-emerald-300 font-medium">Обновить</button>
+        </div>
+        <div id="logs-list" class="divide-y divide-slate-800">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. CHANNELS TAB -->
+    <section id="tab-channels" class="tab-content hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold">Омниканальные векторы</h2>
+          <p class="text-sm text-slate-400">Система рандомно чередует каналы, штрафуя часто используемые</p>
+        </div>
+      </div>
+
+      <div id="channels-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Dynamically rendered channels -->
+      </div>
+    </section>
+
+    <!-- 3. PROMPTS TAB -->
+    <section id="tab-prompts" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold">Библиотека триггеров рефлексии</h2>
+          <p class="text-sm text-slate-400">Базовые темы (КПТ, Схема-терапия, DMM, Соматика), которые мутируются AI</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <select id="prompt-cat-filter" onchange="filterPrompts()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200">
+            <option value="">Все категории</option>
+            <option value="body">🧘‍♂️ Тело & Соматика</option>
+            <option value="modes_schemas">🧠 Режимы & Схемы</option>
+            <option value="emotion">🌊 Эмоции</option>
+            <option value="grounding">⚓ Заземление (5-4-3-2-1)</option>
+            <option value="values">🧭 Ценности (ACT)</option>
+            <option value="micro_break">☕ Микро-пауза</option>
+          </select>
+          <button onclick="openNewPromptModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition">
+            + Добавить тему
+          </button>
+        </div>
+      </div>
+
+      <!-- AI Mutation Preview Tool -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2">⚡ Тестер мутации формулировок (Анти-замыливание)</h3>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input type="text" id="mutation-test-input" value="Проверь напряжение в челюсти и опусти плечи" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-200">
+          <button onclick="testMutationPreview()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-medium border border-slate-700 transition">
+            Переформулировать
+          </button>
+        </div>
+        <div id="mutation-preview-result" class="hidden mt-3 p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl text-sm text-emerald-300">
+        </div>
+      </div>
+
+      <div id="prompts-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Dynamically populated prompts -->
+      </div>
+    </section>
+
+    <!-- 4. SETTINGS TAB -->
+    <section id="tab-settings" class="tab-content hidden space-y-6">
+      <div>
+        <h2 class="text-xl font-bold">Настройки рандомайзера и интеграций</h2>
+        <p class="text-sm text-slate-400">Параметры тихих часов, частоты и ключи API</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Engine & Schedule Settings -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-5">
+          <h3 class="text-base font-semibold text-white">Расписание и Тихие Часы</h3>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Начало тихих часов</label>
+              <input type="time" id="setting-quiet-start" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Конец тихих часов</label>
+              <input type="time" id="setting-quiet-end" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Количество импульсов в день</label>
+            <div class="flex items-center gap-4">
+              <input type="range" id="setting-target-count" min="1" max="12" step="1" oninput="document.getElementById('target-count-val').innerText = this.value" class="flex-1 accent-emerald-500">
+              <span id="target-count-val" class="text-sm font-bold w-8 text-center text-emerald-400">4</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Интервалы рандомизируются с коэффициентом вариации 0.45..1.65 (Poisson Jitter)</p>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <div>
+              <div class="text-sm font-medium">Режим паузы (Отпуск)</div>
+              <div class="text-xs text-slate-400">Полностью заглушить все фоновые импульсы</div>
+            </div>
+            <input type="checkbox" id="setting-is-paused" class="w-5 h-5 accent-emerald-500 rounded">
+          </div>
+        </div>
+
+        <!-- AI & Voice Settings -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-5">
+          <h3 class="text-base font-semibold text-white">AI Переформулирование & Голос (TTS)</h3>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Провайдер перефразирования</label>
+            <select id="setting-llm-provider" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+              <option value="fallback">Офлайн умный рандомизатор (Без ключей API)</option>
+              <option value="gemini">Google Gemini Flash (Рекомендуется)</option>
+              <option value="openai">OpenAI (gpt-4o-mini)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Gemini API Key</label>
+            <input type="password" id="setting-gemini-key" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">OpenAI API Key</label>
+            <input type="password" id="setting-openai-key" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Голос для Telegram аудио (Edge TTS)</label>
+            <select id="setting-tts-voice" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+              <option value="ru-RU-DmitryNeural">Дмитрий (Естественный спокойный, Edge)</option>
+              <option value="ru-RU-SvetlanaNeural">Светлана (Мягкий женский, Edge)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Telegram & Push Config -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-5 lg:col-span-2">
+          <h3 class="text-base font-semibold text-white">Интеграции каналов (Telegram, ntfy.sh, Webhook)</h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Telegram Bot Token (от @BotFather)</label>
+              <input type="text" id="setting-tg-token" placeholder="123456789:ABCdef..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Telegram Chat ID (твой личный ID)</label>
+              <input type="text" id="setting-tg-chat" placeholder="Например: 987654321" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">ntfy.sh Топик (для мгновенных push на телефон/ПК)</label>
+              <input type="text" id="setting-ntfy-topic" placeholder="psyping_my_secret_topic" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+              <p class="text-xs text-slate-500 mt-1">Установи приложение ntfy на телефон и подпишись на этот топик</p>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Custom Webhook URL (Home Assistant / Алиса / MacroDroid)</label>
+              <input type="url" id="setting-webhook-url" placeholder="http://homeassistant.local:8123/api/webhook/..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+            </div>
+          </div>
+
+          <div class="pt-4 flex justify-end">
+            <button onclick="saveAllSettings()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-sm shadow-lg shadow-emerald-600/20 transition">
+              Сохранить настройки
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
